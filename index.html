@@ -244,6 +244,7 @@
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
+      cursor: pointer;
     }
 
     .btn-gradient::before {
@@ -264,6 +265,12 @@
     .btn-gradient:hover {
       transform: translateY(-2px);
       box-shadow: 0 8px 25px rgba(103, 126, 234, 0.4);
+    }
+
+    .btn-gradient:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
     }
 
     .form-control {
@@ -312,6 +319,27 @@
       background: var(--primary-gradient);
       transform: translateY(-3px) rotate(5deg);
       color: white;
+    }
+
+    .form-message {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 12px;
+      text-align: center;
+      font-weight: 500;
+      display: none;
+    }
+
+    .form-message.success {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.3);
+      color: #4CAF50;
+    }
+
+    .form-message.error {
+      background: rgba(244, 67, 54, 0.2);
+      border: 1px solid rgba(244, 67, 54, 0.3);
+      color: #f44336;
     }
 
     @media (max-width: 768px) {
@@ -442,22 +470,32 @@
         <!-- İletişim Formu -->
         <div class="glass-card content-section fade-in">
           <h2 class="section-title">Bana Ulaşın</h2>
-          <form action="https://formspree.io/f/movwdgjq" method="POST">
+          <form id="contactForm" action="https://formspree.io/f/movwdgjq" method="POST">
             <div class="row">
               <div class="col-md-6 mb-3">
                 <input type="text" class="form-control" name="name" placeholder="Adınız" required>
               </div>
               <div class="col-md-6 mb-3">
-                <input type="email" class="form-control" name="email" placeholder="E-posta adresiniz" required>
+                <input type="email" class="form-control" name="_replyto" placeholder="E-posta adresiniz" required>
               </div>
+            </div>
+            <div class="mb-3">
+              <input type="text" class="form-control" name="_subject" placeholder="Konu" required>
             </div>
             <div class="mb-3">
               <textarea class="form-control" name="message" rows="5" placeholder="Mesajınız..." required></textarea>
             </div>
-            <button type="submit" class="btn btn-gradient">
+            
+            <!-- Formspree için hidden fields -->
+            <input type="hidden" name="_next" value="https://dnz-ylmz.github.io/#thank-you">
+            <input type="hidden" name="_captcha" value="false">
+            
+            <button type="submit" class="btn btn-gradient" id="submitBtn">
               <i class="fas fa-paper-plane" style="margin-right: 0.5rem;"></i>
               Mesaj Gönder
             </button>
+            
+            <div id="formMessage" class="form-message"></div>
           </form>
         </div>
       </div>
@@ -491,21 +529,67 @@
     createParticles();
     setInterval(createParticles, 8000);
 
-    // Smooth scroll for form submission
-    document.querySelector('form').addEventListener('submit', function(e) {
+    // Form submission handling
+    document.getElementById('contactForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       
-      // Show success animation (you can customize this)
-      const btn = this.querySelector('button[type="submit"]');
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-check" style="margin-right: 0.5rem;"></i>Gönderildi!';
-      btn.style.background = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
+      const submitBtn = document.getElementById('submitBtn');
+      const formMessage = document.getElementById('formMessage');
+      const form = this;
       
-      setTimeout(() => {
-        btn.innerHTML = originalText;
-        btn.style.background = '';
-        this.reset();
-      }, 2000);
+      // Disable submit button
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 0.5rem;"></i>Gönderiliyor...';
+      
+      try {
+        const formData = new FormData(form);
+        
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          // Success
+          submitBtn.innerHTML = '<i class="fas fa-check" style="margin-right: 0.5rem;"></i>Gönderildi!';
+          submitBtn.style.background = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
+          
+          formMessage.textContent = 'Mesajınız başarıyla gönderildi! En kısa sürede geri dönüş yapacağım.';
+          formMessage.className = 'form-message success';
+          formMessage.style.display = 'block';
+          
+          form.reset();
+          
+          setTimeout(() => {
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane" style="margin-right: 0.5rem;"></i>Mesaj Gönder';
+            submitBtn.style.background = '';
+            submitBtn.disabled = false;
+            formMessage.style.display = 'none';
+          }, 5000);
+          
+        } else {
+          throw new Error('Form submission failed');
+        }
+        
+      } catch (error) {
+        console.error('Form submission error:', error);
+        
+        // Error handling
+        submitBtn.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i>Tekrar Deneyin';
+        submitBtn.disabled = false;
+        
+        formMessage.textContent = 'Mesaj gönderilemedi. Lütfen tekrar deneyin veya direkt e-posta gönderin.';
+        formMessage.className = 'form-message error';
+        formMessage.style.display = 'block';
+        
+        setTimeout(() => {
+          submitBtn.innerHTML = '<i class="fas fa-paper-plane" style="margin-right: 0.5rem;"></i>Mesaj Gönder';
+          formMessage.style.display = 'none';
+        }, 5000);
+      }
     });
 
     // Add parallax effect to background
@@ -516,6 +600,21 @@
       document.body.style.backgroundPosition = 
         `${mouseX * 20}px ${mouseY * 20}px, ${mouseX * -30}px ${mouseY * -30}px, ${mouseX * 15}px ${mouseY * 15}px`;
     });
+
+    // Check if user came from form submission
+    if (window.location.hash === '#thank-you') {
+      const formMessage = document.getElementById('formMessage');
+      formMessage.textContent = 'Mesajınız başarıyla gönderildi! Teşekkür ederim.';
+      formMessage.className = 'form-message success';
+      formMessage.style.display = 'block';
+      
+      // Clean up URL
+      history.replaceState(null, null, window.location.pathname);
+      
+      setTimeout(() => {
+        formMessage.style.display = 'none';
+      }, 5000);
+    }
   </script>
 </body>
 </html>
